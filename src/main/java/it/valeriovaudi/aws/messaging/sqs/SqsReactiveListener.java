@@ -9,6 +9,7 @@ import software.amazon.awssdk.services.sqs.model.DeleteMessageResponse;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static reactor.core.publisher.Mono.fromCompletionStage;
@@ -21,13 +22,14 @@ public class SqsReactiveListener {
     private final Duration sleepingTime;
     private final Flux whileLoopFluxProvider;
     private final SqsAsyncClient sqsAsyncClient;
-    private final Function<String, Void> handler;
+    private final Consumer<String> handler;
 
     public SqsReactiveListener(
             Duration sleepingTime,
             Flux whileLoopFluxProvider,
             ReceiveMessageRequestFactory factory,
-            SqsAsyncClient sqsAsyncClient, Function<String, Void> handler) {
+            SqsAsyncClient sqsAsyncClient,
+            Consumer<String> handler) {
         this.sleepingTime = sleepingTime;
         this.whileLoopFluxProvider = whileLoopFluxProvider;
         this.factory = factory;
@@ -50,7 +52,7 @@ public class SqsReactiveListener {
         return Flux.from(fromCompletionStage(sqsAsyncClient.receiveMessage(factory.makeAReceiveMessageRequest())))
                 .flatMap(response -> Flux.fromIterable(response.messages()))
                 .flatMap(message -> {
-                    handler.apply(message.body());
+                    handler.accept(message.body());
                     return Mono.just(message);
                 })
                 .flatMap(message -> fromCompletionStage(sqsAsyncClient.deleteMessage(factory.makeADeleteMessageRequest(message.receiptHandle()))))
